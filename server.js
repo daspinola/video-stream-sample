@@ -1,3 +1,5 @@
+'use strict';
+
 const express = require('express')
 const fs = require('fs')
 const path = require('path')
@@ -24,7 +26,7 @@ app.get('/video', function(req, res) {
 
     const chunksize = (end-start)+1
     const file = fs.createReadStream(path, {start, end})
-    const head = {
+    let head = {
       'Content-Range': `bytes ${start}-${end}/${fileSize}`,
       'Accept-Ranges': 'bytes',
       'Content-Length': chunksize,
@@ -34,7 +36,7 @@ app.get('/video', function(req, res) {
     res.writeHead(206, head)
     file.pipe(res)
   } else {
-    const head = {
+    let head = {
       'Content-Length': fileSize,
       'Content-Type': 'video/mp4',
     }
