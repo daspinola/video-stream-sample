@@ -1,0 +1,33 @@
+{
+  "preview": [
+    {
+      "views": [
+        {
+          "id": "codesandbox.browser"
+        },
+        {
+          "id": "codesandbox.browser",
+          "closeable": true,
+          "options": {
+            "port": 3001,
+            "url": "https://0ojnh-3001.sse.codesandbox.io"
+          }
+        }
+      ]
+    },
+    {
+      "open": true,
+      "views": [
+        {
+          "id": "codesandbox.terminal"
+        },
+        {
+          "id": "codesandbox.console"
+        },
+        {
+          "id": "codesandbox.problems"
+        }
+      ]
+    }
+  ]
+}

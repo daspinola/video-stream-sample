@@ -1,0 +1,35 @@
+.App {
+  font-family: sans-serif;
+  text-align: center;
+}
+
+#header {
+  position: fixed;
+  text-align: center;
+  width: 100%;
+  padding-bottom: 5px;
+}
+#header-brand {
+  padding-left: 5px;
+}
+
+#footer {
+  text-align: center;
+  padding-top: 5px;
+}
+
+#dashboard {
+  padding: 10px;
+}
+
+#id {
+  margin: 100px;
+  background-color: red;
+}
+
+#box {
+  height: 567.15px;
+  width: 350px;
+  box-sizing: border-box;
+  background-repeat: repeat;
+}
