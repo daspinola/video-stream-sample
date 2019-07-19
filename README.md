@@ -5,5 +5,8 @@ This is a basic sample of how to do video streaming using Node.js and HTML5
 - git clone
 - npm install
 - npm start
+- cd my-app/
+- npm install
+- npm start
 - open browser in `localhost:3000` API and Web Server
 - open browser in `localhost:3001` React App
