@@ -22,6 +22,11 @@ app.get('/video', function(req, res) {
       ? parseInt(parts[1], 10)
       : fileSize-1
 
+    if(start >= fileSize) {
+      res.status(416).send('Requested range not satisfiable\n'+start+' >= '+fileSize);
+      return
+    }
+    
     const chunksize = (end-start)+1
     const file = fs.createReadStream(path, {start, end})
     const head = {
