@@ -3,8 +3,19 @@
     <title>Video stream sample</title>
   </head>
   <body>
-    <video id="videoPlayer" controls muted="muted" autoplay> 
-      <source src="/video" type="video/mp4">
-    </video>
+    <div id="container-videos">
+      <video width="500px" height="500px" id="video-player" controls muted="muted" autoplay> 
+        <source src="/video?video=sample" type="video/mp4">
+      </video>
+  
+      <video style="display: none;" width="500px" height="500px" id="video-player-2" controls muted="muted"> 
+        <source src="/video?video=sample-2" type="video/mp4">
+      </video>
+    </div>
+    <div style="margin-top: 25px">
+      <button id="btn-switch">"Seemless"</button>
+    </div>
+
+    <script src="/index.js"></script>
   </body>
 </html>
