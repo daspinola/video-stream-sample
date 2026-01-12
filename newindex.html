@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Stream Viewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .queue-item {
+            transition: all 0.3s ease;
+        }
+        .glow {
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+        /* Hidden elements styling */
+        .hidden-panel {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.95);
+            border-radius: 12px;
+            padding: 15px;
+            width: 320px;
+            max-height: 400px;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transform: translateY(100%);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        .hidden-panel.active {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        .toggle-hidden-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1001;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+        .toggle-hidden-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-bold mb-3 bg-clip-text text-transparent gradient-bg">
+                <i class="fas fa-play-circle mr-3"></i>Live Stream Viewer
+            </h1>
+            <p class="text-gray-300 text-lg">Advanced streaming with intelligent buffering system</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left Panel: Video Player and Controls -->
+            <div class="lg:col-span-3"> <!-- Changed to span full width -->
+                <!-- Video URL Input -->
+                <div class="mb-6 bg-gray-800 rounded-xl p-6 shadow-lg max-w-4xl mx-auto">
+                    <h2 class="text-xl font-semibold mb-4 flex items-center">
+                        <i class="fas fa-link mr-2 text-blue-400"></i> Video Source
+                    </h2>
+                    <div class="flex flex-col md:flex-row gap-3">
+                        <input 
+                            type="text" 
+                            id="videoUrl" 
+                            placeholder="Enter video URL (e.g., https://example.com/video.mp4)" 
+                            class="flex-grow p-4 rounded-lg bg-gray-700 border border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                            value="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+                        >
+                        <button 
+                            id="loadVideo" 
+                            class="px-6 py-4 rounded-lg font-semibold gradient-bg hover:opacity-90 transition-all duration-300 flex items-center justify-center"
+                        >
+                            <i class="fas fa-play mr-2"></i> Load & Stream
+                        </button>
+                    </div>
+                    <div class="mt-4 flex flex-wrap gap-3">
+                        <div class="flex items-center">
+                            <span class="text-gray-400 mr-2">Quality:</span>
+                            <select id="qualitySelect" class="bg-gray-700 border border-gray-600 rounded-lg p-2">
+                                <option value="auto">Auto (Highest)</option>
+                                <option value="1080p">1080p</option>
+                                <option value="720p">720p</option>
+                                <option value="480p">480p</option>
+                            </select>
+                        </div>
+                        <button id="togglePlay" class="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700">
+                            <i class="fas fa-pause"></i> Pause
+                        </button>
+                        <button id="fullscreen" class="px-4 py-2 bg-purple-600 rounded-lg hover:bg-purple-700">
+                            <i class="fas fa-expand"></i> Fullscreen
+                        </button>
+                        <button id="showDebug" class="px-4 py-2 bg-gray-600 rounded-lg hover:bg-gray-700">
+                            <i class="fas fa-cogs"></i> Show System Panel
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Video Player -->
+                <div class="mb-6 bg-gray-800 rounded-xl p-2 shadow-lg max-w-4xl mx-auto">
+                    <video 
+                        id="videoPlayer" 
+                        class="w-full rounded-lg" 
+                        controls
+                        autoplay
+                        playsinline
+                    >
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+
+                <!-- Streaming Stats (Visible) -->
+                <div class="bg-gray-800 rounded-xl p-6 shadow-lg max-w-4xl mx-auto">
+                    <h2 class="text-xl font-semibold mb-4 flex items-center">
+                        <i class="fas fa-chart-line mr-2 text-green-400"></i> Streaming Statistics
+                    </h2>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="bg-gray-700 p-4 rounded-lg text-center">
+                            <div class="text-gray-400 text-sm">Download Speed</div>
+                            <div id="downloadSpeed" class="text-xl font-bold text-green-400">0 MB/s</div>
+                        </div>
+                        <div class="bg-gray-700 p-4 rounded-lg text-center">
+                            <div class="text-gray-400 text-sm">Buffer Level</div>
+                            <div id="bufferLevel" class="text-xl font-bold text-blue-400">0s</div>
+                        </div>
+                        <div class="bg-gray-700 p-4 rounded-lg text-center">
+                            <div class="text-gray-400 text-sm">Active Downloads</div>
+                            <div id="activeDownloadsCount" class="text-xl font-bold text-yellow-400">0</div>
+                        </div>
+                        <div class="bg-gray-700 p-4 rounded-lg text-center">
+                            <div class="text-gray-400 text-sm">Cache Hits</div>
+                            <div id="cacheHits" class="text-xl font-bold text-purple-400">0</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Buffer Progress -->
+                    <div class="mt-6">
+                        <div class="flex justify-between text-sm text-gray-400 mb-2">
+                            <span>Buffer Progress</span>
+                            <span id="bufferPercent">0%</span>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-3">
+                            <div id="bufferProgress" class="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full progress-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Quick Stats -->
+                    <div class="mt-6 grid grid-cols-3 gap-3">
+                        <div class="bg-gray-700 p-3 rounded-lg text-center">
+                            <div class="text-xs text-gray-400">Total Downloaded</div>
+                            <div class="font-semibold text-green-400" id="totalDownloaded">0 MB</div>
+                        </div>
+                        <div class="bg-gray-700 p-3 rounded-lg text-center">
+                            <div class="text-xs text-gray-400">Stream Health</div>
+                            <div id="streamHealth" class="font-semibold text-green-400">Excellent</div>
+                        </div>
+                        <div class="bg-gray-700 p-3 rounded-lg text-center">
+                            <div class="text-xs text-gray-400">Chunk Size</div>
+                            <div class="font-semibold" id="chunkSize">1 MB</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hidden Panels (Now moved to fixed position and initially hidden) -->
+            <div id="hiddenPanels" class="hidden-panel">
+                <!-- System Status -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold mb-3 flex items-center justify-between">
+                        <span><i class="fas fa-cogs mr-2 text-yellow-400"></i> System Status</span>
+                        <button id="closeHiddenPanel" class="text-gray-400 hover:text-white">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </h3>
+                    <div class="space-y-3">
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-gray-400">CPU Usage</span>
+                                <span id="cpuUsage" class="font-semibold text-green-400">12%</span>
+                            </div>
+                            <div class="w-full bg-gray-700 rounded-full h-1.5">
+                                <div id="cpuBar" class="bg-green-500 h-1.5 rounded-full" style="width: 12%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-gray-400">Memory</span>
+                                <span id="memoryUsage" class="font-semibold text-blue-400">256 MB</span>
+                            </div>
+                            <div class="w-full bg-gray-700 rounded-full h-1.5">
+                                <div id="memoryBar" class="bg-blue-500 h-1.5 rounded-full" style="width: 65%"></div>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="bg-gray-800 p-2 rounded">
+                                <div class="text-xs text-gray-400">Network Latency</div>
+                                <div class="font-semibold text-sm" id="networkLatency">42ms</div>
+                            </div>
+                            <div class="bg-gray-800 p-2 rounded">
+                                <div class="text-xs text-gray-400">FPS</div>
+                                <div class="font-semibold text-sm" id="fpsCounter">60</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Download Queue -->
+                <div class="mb-6">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-lg font-semibold flex items-center">
+                            <i class="fas fa-download mr-2 text-blue-400"></i> Download Queue
+                            <span id="downloadQueueCount" class="ml-2 bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">0</span>
+                        </h3>
+                    </div>
+                    <div id="downloadQueue" class="space-y-2 max-h-32 overflow-y-auto p-1">
+                        <!-- Download queue items will be added here dynamically -->
+                        <div class="text-center text-gray-500 py-4 text-sm">
+                            <i class="fas fa-inbox mb-1"></i>
+                            <p>Download queue is empty</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cache Queue -->
+                <div class="mb-4">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-lg font-semibold flex items-center">
+                            <i class="fas fa-history mr-2 text-purple-400"></i> Cache Queue
+                            <span id="cacheQueueCount" class="ml-2 bg-purple-600 text-white text-xs px-2 py-0.5 rounded-full">0</span>
+                        </h3>
+                    </div>
+                    <div id="cacheQueue" class="space-y-2 max-h-24 overflow-y-auto p-1">
+                        <!-- Cache queue items will be added here dynamically -->
+                        <div class="text-center text-gray-500 py-4 text-sm">
+                            <i class="fas fa-database mb-1"></i>
+                            <p>Cache queue is empty</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center text-xs text-gray-500 mt-4 pt-3 border-t border-gray-700">
+                    System Panel • Debug Information
+                </div>
+            </div>
+            
+            <!-- Toggle button for hidden panels -->
+            <div id="toggleHiddenBtn" class="toggle-hidden-btn">
+                <i class="fas fa-cogs"></i>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="mt-12 text-center text-gray-500 text-sm">
+            <p>Live Stream Viewer • Intelligent Streaming System</p>
+            <p class="mt-2">Streaming optimized with dual-queue buffering technology</p>
+        </footer>
+    </div>
+
+    <script>
+        // Streaming Controller
+        class StreamController {
+            constructor() {
+                this.videoPlayer = document.getElementById('videoPlayer');
+                this.videoUrlInput = document.getElementById('videoUrl');
+                this.loadVideoBtn = document.getElementById('loadVideo');
+                this.togglePlayBtn = document.getElementById('togglePlay');
+                this.hiddenPanels = document.getElementById('hiddenPanels');
+                this.toggleHiddenBtn = document.getElementById('toggleHiddenBtn');
+                
+                // Queues
+                this.downloadQueue = [];
+                this.cacheQueue = [];
+                this.activeDownloads = new Set();
+                
+                // Configuration
+                this.chunkSize = 1024 * 1024; // 1MB chunks
+                this.downloadQueueSize = 4; // Download 4 chunks ahead
+                this.cacheQueueSize = 0.1; // Keep 10% of deleted chunks
+                
+                // Statistics
+                this.stats = {
+                    totalDownloaded: 0,
+                    downloadSpeed: 0,
+                    cacheHits: 0,
+                    bufferDuration: 0,
+                    lastSpeedCheck: Date.now(),
+                    lastBytesDownloaded: 0,
+                    cpuUsage: 12,
+                    memoryUsage: 256,
+                    networkLatency: 42,
+                    fps: 60
+                };
+                
+                // Initialize
+                this.initEventListeners();
+                this.updateUI();
+                this.updateSystemStats();
+            }
+            
+            initEventListeners() {
+                this.loadVideoBtn.addEventListener('click', () => this.loadVideo());
+                this.togglePlayBtn.addEventListener('click', () => this.togglePlayPause());
+                document.getElementById('fullscreen').addEventListener('click', () => this.toggleFullscreen());
+                document.getElementById('showDebug').addEventListener('click', () => this.toggleHiddenPanel());
+                document.getElementById('closeHiddenPanel').addEventListener('click', () => this.toggleHiddenPanel());
+                this.toggleHiddenBtn.addEventListener('click', () => this.toggleHiddenPanel());
+                document.getElementById('qualitySelect').addEventListener('change', (e) => this.changeQuality(e.target.value));
+                
+                // Video event listeners
+                this.videoPlayer.addEventListener('timeupdate', () => this.onTimeUpdate());
+                this.videoPlayer.addEventListener('playing', () => this.onPlaying());
+                this.videoPlayer.addEventListener('pause', () => this.onPause());
+                this.videoPlayer.addEventListener('ended', () => this.onEnded());
+                this.videoPlayer.addEventListener('waiting', () => this.onWaiting());
+                this.videoPlayer.addEventListener('canplay', () => this.onCanPlay());
+                
+                // Simulate initial video load for demo
+                setTimeout(() => this.loadVideo(), 1000);
+            }
+            
+            async loadVideo() {
+                const url = this.videoUrlInput.value.trim();
+                if (!url) return;
+                
+                try {
+                    this.showLoadingState();
+                    
+                    // Set video source
+                    this.videoPlayer.src = url;
+                    
+                    // Reset queues and stats
+                    this.downloadQueue = [];
+                    this.cacheQueue = [];
+                    this.stats.totalDownloaded = 0;
+                    this.stats.cacheHits = 0;
+                    
+                    // Initialize streaming
+                    await this.videoPlayer.load();
+                    
+                    // Start download manager
+                    this.startDownloadManager();
+                    
+                    // Update UI
+                    this.updateUI();
+                    
+                    // Show success
+                    this.showNotification('Video loaded successfully! Streaming optimized.', 'success');
+                } catch (error) {
+                    console.error('Error loading video:', error);
+                    this.showNotification('Error loading video. Please check the URL.', 'error');
+                }
+            }
+            
+            startDownloadManager() {
+                // Clear any existing interval
+                if (this.downloadInterval) clearInterval(this.downloadInterval);
+                
+                // Start downloading chunks
+                this.downloadInterval = setInterval(() => {
+                    this.manageDownloadQueue();
+                }, 1000);
+            }
+            
+            manageDownloadQueue() {
+                // Calculate chunks needed based on current playback position
+                const currentTime = this.videoPlayer.currentTime || 0;
+                const duration = this.videoPlayer.duration || 100; // Default 100 seconds if unknown
+                
+                // Calculate next chunk index
+                const chunkIndex = Math.floor(currentTime / (duration / 100));
+                
+                // Add chunks to download queue if needed
+                const chunksToDownload = this.downloadQueueSize - this.downloadQueue.length;
+                
+                for (let i = 0; i < chunksToDownload; i++) {
+                    const newChunkIndex = chunkIndex + i;
+                    
+                    // Check if chunk is already in cache
+                    const cachedChunk = this.cacheQueue.find(chunk => chunk.index === newChunkIndex);
+                    if (cachedChunk) {
+                        this.stats.cacheHits++;
+                        continue;
+                    }
+                    
+                    // Check if chunk is already downloading
+                    if (this.activeDownloads.has(newChunkIndex)) continue;
+                    
+                    // Add to download queue
+                    this.downloadQueue.push({
+                        index: newChunkIndex,
+                        size: this.chunkSize,
+                        progress: 0,
+                        status: 'queued'
+                    });
+                    
+                    // Start downloading this chunk
+                    this.downloadChunk(newChunkIndex);
+                }
+                
+                // Update statistics
+                this.updateStats();
+                this.updateUI();
+            }
+            
+            async downloadChunk(chunkIndex) {
+                if (this.activeDownloads.has(chunkIndex)) return;
+                
+                this.activeDownloads.add(chunkIndex);
+                
+                // Find chunk in download queue
+                const chunk = this.downloadQueue.find(c => c.index === chunkIndex);
+                if (!chunk) return;
+                
+                // Simulate download with progress
+                chunk.status = 'downloading';
+                this.updateUI();
+                
+                // Simulate download progress
+                const downloadTime = 500 + Math.random() * 1000; // 0.5-1.5 seconds
+                const progressInterval = 50;
+                const progressSteps = downloadTime / progressInterval;
+                const progressIncrement = 100 / progressSteps;
+                
+                let progress = 0;
+                const simulateProgress = () => {
+                    if (progress >= 100) {
+                        chunk.progress = 100;
+                        chunk.status = 'completed';
+                        this.activeDownloads.delete(chunkIndex);
+                        
+                        // Move to cache if needed (simulate 10% cache retention)
+                        if (Math.random() < this.cacheQueueSize) {
+                            this.addToCache(chunk);
+                        }
+                        
+                        // Update stats
+                        this.stats.totalDownloaded += chunk.size / (1024 * 1024); // Add MB
+                        this.updateStats();
+                        this.updateUI();
+                        return;
+                    }
+                    
+                    progress += progressIncrement;
+                    chunk.progress = Math.min(progress, 100);
+                    
+                    // Update speed calculation
+                    const now = Date.now();
+                    const timeDiff = (now - this.stats.lastSpeedCheck) / 1000; // in seconds
+                    
+                    if (timeDiff >= 1) {
+                        const bytesDownloaded = (chunk.size * progressIncrement / 100) * this.activeDownloads.size;
+                        this.stats.downloadSpeed = bytesDownloaded / (1024 * 1024 * timeDiff); // MB/s
+                        this.stats.lastSpeedCheck = now;
+                    }
+                    
+                    this.updateUI();
+                    setTimeout(simulateProgress, progressInterval);
+                };
+                
+                simulateProgress();
+            }
+            
+            addToCache(chunk) {
+                // Clone chunk for cache
+                const cachedChunk = {
+                    ...chunk,
+                    cachedAt: Date.now()
+                };
+                
+                // Add to cache queue
+                this.cacheQueue.unshift(cachedChunk);
+                
+                // Limit cache size (keep only 10 items for demo)
+                if (this.cacheQueue.length > 10) {
+                    this.cacheQueue.pop();
+                }
+                
+                // Remove from download queue
+                this.downloadQueue = this.downloadQueue.filter(c => c.index !== chunk.index);
+            }
+            
+            updateStats() {
+                // Calculate buffer duration (simulated)
+                this.stats.bufferDuration = (this.downloadQueue.length * 2.5) + (this.cacheQueue.length * 1.5);
+                
+                // Update visible stats
+                document.getElementById('downloadSpeed').textContent = 
+                    `${this.stats.downloadSpeed.toFixed(2)} MB/s`;
+                
+                document.getElementById('bufferLevel').textContent = 
+                    `${this.stats.bufferDuration.toFixed(1)}s`;
+                
+                document.getElementById('activeDownloadsCount').textContent = 
+                    this.activeDownloads.size;
+                
+                document.getElementById('cacheHits').textContent = 
+                    this.stats.cacheHits;
+                
+                document.getElementById('totalDownloaded').textContent = 
+                    `${this.stats.totalDownloaded.toFixed(1)} MB`;
+                
+                // Update progress bar
+                const bufferPercent = Math.min(100, (this.stats.bufferDuration / 10) * 100);
+                document.getElementById('bufferProgress').style.width = `${bufferPercent}%`;
+                document.getElementById('bufferPercent').textContent = `${Math.round(bufferPercent)}%`;
+                
+                // Update stream health
+                let healthPercent = 100;
+                let healthText = 'Excellent';
+                let healthColor = 'green';
+                
+                if (this.stats.bufferDuration < 3) {
+                    healthPercent = (this.stats.bufferDuration / 3) * 100;
+                    healthText = 'Poor';
+                    healthColor = 'red';
+                } else if (this.stats.bufferDuration < 6) {
+                    healthPercent = 60 + ((this.stats.bufferDuration - 3) / 3) * 40;
+                    healthText = 'Good';
+                    healthColor = 'yellow';
+                }
+                
+                document.getElementById('streamHealth').textContent = healthText;
+                document.getElementById('streamHealth').className = `font-semibold text-${healthColor}-400`;
+                
+                // Update chunk size display
+                document.getElementById('chunkSize').textContent = 
+                    `${(this.chunkSize / (1024 * 1024)).toFixed(1)} MB`;
+            }
+            
+            updateSystemStats() {
+                // Simulate system stats updates
+                setInterval(() => {
+                    // Randomize system stats slightly for realism
+                    this.stats.cpuUsage = Math.max(5, Math.min(40, this.stats.cpuUsage + (Math.random() * 4 - 2)));
+                    this.stats.networkLatency = Math.max(20, Math.min(80, this.stats.networkLatency + (Math.random() * 10 - 5)));
+                    this.stats.fps = Math.max(30, Math.min(60, this.stats.fps + (Math.random() * 4 - 2)));
+                    
+                    // Update hidden panel system stats
+                    document.getElementById('cpuUsage').textContent = `${this.stats.cpuUsage.toFixed(0)}%`;
+                    document.getElementById('cpuBar').style.width = `${this.stats.cpuUsage}%`;
+                    document.getElementById('networkLatency').textContent = `${this.stats.networkLatency.toFixed(0)}ms`;
+                    document.getElementById('fpsCounter').textContent = `${this.stats.fps.toFixed(0)}`;
+                }, 2000);
+            }
+            
+            updateUI() {
+                // Update download queue display in hidden panel
+                const downloadQueueEl = document.getElementById('downloadQueue');
+                const downloadQueueCount = document.getElementById('downloadQueueCount');
+                
+                if (this.downloadQueue.length === 0) {
+                    downloadQueueEl.innerHTML = `
+                        <div class="text-center text-gray-500 py-4 text-sm">
+                            <i class="fas fa-inbox mb-1"></i>
+                            <p>Download queue is empty</p>
+                        </div>
+                    `;
+                } else {
+                    downloadQueueEl.innerHTML = this.downloadQueue.map(chunk => `
+                        <div class="queue-item bg-gray-800 p-2 rounded ${chunk.status === 'downloading' ? 'border-l-2 border-blue-500' : ''}">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-xs font-medium">Chunk ${chunk.index}</span>
+                                <span class="text-xs px-1.5 py-0.5 rounded ${chunk.status === 'downloading' ? 'bg-blue-600' : chunk.status === 'completed' ? 'bg-green-600' : 'bg-gray-600'}">
+                                    ${chunk.status}
+                                </span>
+                            </div>
+                            <div class="w-full bg-gray-700 rounded-full h-1.5">
+                                <div class="bg-blue-500 h-1.5 rounded-full" style="width: ${chunk.progress}%"></div>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-0.5 flex justify-between">
+                                <span>${(chunk.size / (1024 * 1024)).toFixed(1)} MB</span>
+                                <span>${chunk.progress.toFixed(0)}%</span>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+                
+                downloadQueueCount.textContent = this.downloadQueue.length;
+                
+                // Update cache queue display in hidden panel
+                const cacheQueueEl = document.getElementById('cacheQueue');
+                const cacheQueueCount = document.getElementById('cacheQueueCount');
+                
+                if (this.cacheQueue.length === 0) {
+                    cacheQueueEl.innerHTML = `
+                        <div class="text-center text-gray-500 py-4 text-sm">
+                            <i class="fas fa-database mb-1"></i>
+                            <p>Cache queue is empty</p>
+                        </div>
+                    `;
+                } else {
+                    cacheQueueEl.innerHTML = this.cacheQueue.map(chunk => `
+                        <div class="queue-item bg-gray-800 p-2 rounded">
+                            <div class="flex justify-between items-center mb-0.5">
+                                <span class="text-xs font-medium">Chunk ${chunk.index}</span>
+                                <span class="text-xs text-gray-500">
+                                    ${new Date(chunk.cachedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                </span>
+                            </div>
+                            <div class="text-xs text-gray-500">
+                                ${(chunk.size / (1024 * 1024)).toFixed(1)} MB • Cached
+                            </div>
+                        </div>
+                    `).join('');
+                }
+                
+                cacheQueueCount.textContent = this.cacheQueue.length;
+            }
+            
+            toggleHiddenPanel() {
+                this.hiddenPanels.classList.toggle('active');
+                if (this.hiddenPanels.classList.contains('active')) {
+                    this.toggleHiddenBtn.innerHTML = '<i class="fas fa-times"></i>';
+                    this.toggleHiddenBtn.style.transform = 'scale(1.1)';
+                } else {
+                    this.toggleHiddenBtn.innerHTML = '<i class="fas fa-cogs"></i>';
+                    this.toggleHiddenBtn.style.transform = 'scale(1)';
+                }
+            }
+            
+            togglePlayPause() {
+                if (this.videoPlayer.paused) {
+                    this.videoPlayer.play();
+                    this.togglePlayBtn.innerHTML = '<i class="fas fa-pause"></i> Pause';
+                    this.togglePlayBtn.classList.remove('bg-green-600');
+                    this.togglePlayBtn.classList.add('bg-blue-600');
+                } else {
+                    this.videoPlayer.pause();
+                    this.togglePlayBtn.innerHTML = '<i class="fas fa-play"></i> Play';
+                    this.togglePlayBtn.classList.remove('bg-blue-600');
+                    this.togglePlayBtn.classList.add('bg-green-600');
+                }
+            }
+            
+            toggleFullscreen() {
+                if (!document.fullscreenElement) {
+                    if (this.videoPlayer.requestFullscreen) {
+                        this.videoPlayer.requestFullscreen();
+                    }
+                } else {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    }
+                }
+            }
+            
+            changeQuality(quality) {
+                this.showNotification(`Streaming quality set to ${quality}`, 'info');
+            }
+            
+            showLoadingState() {
+                this.loadVideoBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Loading...';
+                this.loadVideoBtn.disabled = true;
+                
+                setTimeout(() => {
+                    this.loadVideoBtn.innerHTML = '<i class="fas fa-play mr-2"></i> Load & Stream';
+                    this.loadVideoBtn.disabled = false;
+                }, 2000);
+            }
+            
+            showNotification(message, type = 'info') {
+                // Create notification element
+                const notification = document.createElement('div');
+                notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 transform transition-all duration-300 ${
+                    type === 'success' ? 'bg-green-600' : 
+                    type === 'error' ? 'bg-red-600' : 
+                    'bg-blue-600'
+                }`;
+                notification.innerHTML = `
+                    <div class="flex items-center">
+                        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'} mr-3"></i>
+                        <span>${message}</span>
+                    </div>
+                `;
+                
+                document.body.appendChild(notification);
+                
+                // Remove after 3 seconds
+                setTimeout(() => {
+                    notification.style.opacity = '0';
+                    notification.style.transform = 'translateX(100%)';
+                    setTimeout(() => {
+                        document.body.removeChild(notification);
+                    }, 300);
+                }, 3000);
+            }
+            
+            // Video event handlers
+            onTimeUpdate() {
+                this.updateStats();
+            }
+            
+            onPlaying() {
+                console.log('Video started playing');
+            }
+            
+            onPause() {
+                console.log('Video paused');
+            }
+            
+            onEnded() {
+                console.log('Video ended');
+                this.showNotification('Playback completed!', 'info');
+            }
+            
+            onWaiting() {
+                console.log('Video waiting for data');
+            }
+            
+            onCanPlay() {
+                console.log('Video can start playing');
+            }
+        }
+        
+        // Initialize the streaming controller when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            window.streamController = new StreamController();
+            
+            // Show welcome message
+            setTimeout(() => {
+                if (window.streamController) {
+                    window.streamController.showNotification('System ready! Click "Load & Stream" to start.', 'info');
+                }
+            }, 1500);
+        });
+    </script>
+</body>
+</html>
